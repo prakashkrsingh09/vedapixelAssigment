@@ -1,97 +1,203 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+## Veda Logistics – React Native Logistics & Delivery Tracking App
 
-# Getting Started
+This is a mobile Logistics & Delivery Tracking application built with **React Native (0.82)**.  
+It implements a complete multi‑role flow for **Customer**, **Driver**, and **Admin**, entirely backed by **mock APIs / static in‑memory data**.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+### Tech stack
+- **React Native 0.82** (CLI template)
+- **Navigation**: `@react-navigation/native`, `@react-navigation/native-stack`, `@react-navigation/bottom-tabs`
+- **State management**: React **Context API** (`src/state/AppContext.tsx`)
+- **Mock backend**: in‑memory store in `src/mockApi.ts`
+- **Icons**: `react-native-vector-icons/MaterialIcons`
 
-## Step 1: Start Metro
+---
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Running the app
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+From the project root:
 
 ```sh
-# Using npm
+# Install dependencies
+npm install
+
+# Start Metro
 npm start
 
-# OR using Yarn
-yarn start
+# In another terminal:
+npm run android   # or: npm run ios
 ```
 
-## Step 2: Build and run your app
+> Make sure your React Native environment is set up (`Android Studio` / Xcode, emulators, etc.).
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+---
 
-### Android
+## Authentication & Roles
 
-```sh
-# Using npm
-npm run android
+Auth is **mocked** and uses static / auto‑generated users. There is no real backend.
 
-# OR using Yarn
-yarn android
-```
+- **Screen**: `src/components/AuthScreens.tsx` (`AuthFlow`)
+- **Supported roles**: `customer`, `driver`, `admin`
+- **Flow**:
+  1. Choose role (Customer / Driver / Admin)
+  2. Enter email + password (any password works)
+  3. Mock login via `mockLogin` in `src/mockApi.ts`
+  4. OTP verification step (always succeeds via `mockVerifyOtp`)
+  5. Forgot password flow (mocked via `mockForgotPassword`)
+- **Session**:
+  - Stored via a small in‑memory storage wrapper in `AppContext` (simulating LocalStorage/SessionStorage)
+  - Restored on app launch using `SESSION_KEY = 'mock_session_user'`
 
-### iOS
+Example emails created on first login:
+- Customer: `alice@example.com`
+- Driver: `bob@example.com`
+- Admin: `admin@example.com`
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+---
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+## Navigation & Screens
 
-```sh
-bundle install
-```
+Top‑level app wiring:
+- `App.tsx` – wraps the app with:
+  - `SafeAreaProvider`
+  - `AppProvider` (Context)
+  - `NavigationContainer`
+  - `AppNavigator`
 
-Then, and every time you update your native dependencies, run:
+### Navigation
 
-```sh
-bundle exec pod install
-```
+- `src/navigation/AppNavigator.tsx`
+  - **Stack**:
+    - `Auth` → `AuthFlow` (unauthenticated)
+    - `Main` → role‑based tab navigator (authenticated)
+  - **Tabs (per role)**:
+    - **Customer**: Home, New Order, Orders, Profile
+    - **Driver**: Deliveries, Orders, Profile
+    - **Admin**: Overview, Orders, Profile
+  - Each tab screen uses consistent styling and bottom tab icons (MaterialIcons).
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+### Screens
 
-```sh
-# Using npm
-npm run ios
+All screens live in `src/screens/`:
 
-# OR using Yarn
-yarn ios
-```
+- `CustomerHome.tsx`
+  - Stats: **live deliveries**, **pending**, **in transit**, **delivered**
+  - Recent orders list
+- `OrderCreate.tsx`
+  - Shipping address
+  - Delivery options: **Standard / Express / Same‑day**
+  - Payment methods (mock): **Card / UPI / Cash on Delivery**
+  - Mock payment (80% success) → success / failure UI
+- `OrdersList.tsx`
+  - Master–detail view of all orders
+  - Right‑side order detail panel (`OrderDetails`)
+- `DriverDashboard.tsx`
+  - Shows orders assigned to the driver
+  - Progresses order status:
+    - `pending → in_transit → delivered`
+  - When marking **delivered**, attaches mock picture proof
+- `AdminPanel.tsx`
+  - View all orders
+  - Assign orders to drivers
+  - Change status (e.g., cancel)
+  - Delete / remove orders
+- `ProfileScreen.tsx`
+  - Profile info (name, email, role)
+  - Delivery history:
+    - Customer: delivered customer orders
+    - Driver: delivered driver orders
+    - Admin: all orders
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Authentication screen:
+- `src/components/AuthScreens.tsx` – login + OTP + forgot password
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+Shared layout & components:
+- `src/components/Layout.tsx`
+  - `ScreenContainer` – dark header + light rounded body
+  - `AppButton` – primary/secondary/danger/ghost
+  - `StatPill` – KPI pills on dashboards
+- `src/components/shared/OrderComponents.tsx`
+  - `OrderCards`, `OrderCardItem`, `OrderDetails`, `Chip`
 
-## Step 3: Modify your app
+---
 
-Now that you have successfully run the app, let's make changes!
+## State Management & Mock API
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Context (`src/state/AppContext.tsx`)
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+Global state contains:
+- `auth` – current user + loading state
+- `orders` – list of orders visible for current role
+- `notifications` – simple notification items
+- `allDrivers` – list of driver users
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+Exposed actions:
+- `login`, `verifyOtp`, `forgotPassword`, `logout`
+- `refreshOrders`, `createNewOrder`, `changeOrderStatus`, `removeOrder`, `assignOrder`
+- `refreshNotifications`, `markNotificationAsRead`
 
-## Congratulations! :tada:
+### Mock API (`src/mockApi.ts`)
 
-You've successfully run and modified your React Native App. :partying_face:
+In‑memory arrays simulate a backend:
+- `users` – seeded with one Customer, one Driver, one Admin
+- `orders` – few sample orders with timelines
+- `notifications` – created when admin assigns an order
 
-### Now what?
+Key functions:
+- `mockLogin`, `mockVerifyOtp`, `mockForgotPassword`
+- `fetchOrdersForUser(user)`
+- `createOrder(customer, address, option, paymentMethod)`
+- `updateOrderStatus(orderId, status, {proofImage?})`
+- `assignOrderToDriver(orderId, driver)`
+- `deleteOrder(orderId)`
+- `fetchAllDrivers()`
+- `getNotifications(userId)`, `markNotificationRead(id)`
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+All functions are asynchronous and include small timeouts to simulate network latency.
 
-# Troubleshooting
+---
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## Feature–Requirement Mapping
 
-# Learn More
+- **User Authentication**
+  - Sign up / log in / log out: `AuthFlow` + `mockLogin` (auto‑creates new users)
+  - Roles: **Admin**, **Customer**, **Driver**
+  - OTP verification: `verifyOtp` (mock success)
+  - Forgot password: `forgotPassword` (mock)
+  - Session: stored via simulated LocalStorage in `AppContext`
 
-To learn more about React Native, take a look at the following resources:
+- **Home Page (Customer)**
+  - Live deliveries, Pending, In transit, Delivered counts – `CustomerHome`
+  - Order cards show Order ID + current status
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- **Order Creation & Checkout**
+  - Shipping address
+  - Delivery options: Standard / Express / Same‑day
+  - Payment methods: Card / UPI / Cash on Delivery (mock)
+  - Success / failure screens after payment – `OrderCreate`
+
+- **Order Tracking**
+  - View all orders – `OrdersList`
+  - Status timeline: Placed → Shipped (in transit) → Delivered – `OrderDetails.timeline`
+  - Picture proof of delivery (mock image) if uploaded by driver
+
+- **Driver Dashboard**
+  - Driver‑only view of assigned deliveries – `DriverDashboard`
+  - Accept / progress delivery status; upload mock picture proof on delivered
+
+- **Admin Panel**
+  - View all orders – `AdminPanel`
+  - Assign orders to drivers
+  - Change order status (e.g., cancel)
+  - Delete / remove orders
+
+- **Notifications**
+  - Created when admin assigns an order to a driver – `mockApi.createNotification`
+  - Stored per‑user; unread count shown in header badge
+
+- **Profile Page**
+  - Profile info (name, email, role)
+  - Delivery history per role – `ProfileScreen`
+
+
+
+
